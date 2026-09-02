@@ -1,257 +1,171 @@
+# src/config.py
+
 """
-config.py
+Central configuration for the Online News Popularity project.
 
-Single source of truth for project configuration.
+Final methodology
+------------------
+1. The six original word-based features are completely removed.
 
-This file contains:
-    - Project/data/model paths
-    - Dataset column definitions
-    - Text-derived target feature definitions
-    - Frozen classifier configuration
-    - Scraping configuration
-    - Train/validation/test split configuration
-    - Transformer configuration
-    - LSTM configuration
-    - Evaluation configuration
+2. Sixteen original sentiment features are reconstructed using a
+   frozen DistilBERT representation and a supervised neural-network
+   head.
+
+3. Five original UCI LDA features are reconstructed using the same
+   frozen DistilBERT representation and a second neural-network head.
+
+4. The sentiment and LDA tasks share the same learned FNN backbone.
+
+5. Channel and structural/web features are retained from the original
+   dataset.
+
+6. Popularity classifiers are retrained on the resulting feature space.
+
+BERT is NEVER fine-tuned.
 """
 
 from pathlib import Path
 
 
-# =============================================================================
-# PROJECT PATHS
-# =============================================================================
+# ============================================================
+# PROJECT DIRECTORIES
+# ============================================================
 
-# src/config.py -> src/ -> project root
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 DATA_DIR = PROJECT_ROOT / "data"
-MODEL_DIR = PROJECT_ROOT / "models"
-OUTPUT_DIR = PROJECT_ROOT / "outputs"
-NOTEBOOK_DIR = PROJECT_ROOT / "notebooks"
+MODELS_DIR = PROJECT_ROOT / "models"
+OUTPUTS_DIR = PROJECT_ROOT / "outputs"
+
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+MODELS_DIR.mkdir(parents=True, exist_ok=True)
+OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# =============================================================================
+# ============================================================
 # DATA FILES
-# =============================================================================
+# ============================================================
 
 RAW_DATA_PATH = DATA_DIR / "OnlineNewsPopularity.csv"
+
 PROCESSED_DATA_PATH = DATA_DIR / "processed_news.csv"
 
-# New text-retrieval pipeline
 SCRAPED_ARTICLES_PATH = DATA_DIR / "scraped_articles.csv"
+
 RETRIEVAL_METADATA_PATH = DATA_DIR / "retrieval_metadata.csv"
 
 
-# =============================================================================
-# MODEL DIRECTORIES
-# =============================================================================
+# ============================================================
+# BERT OUTPUTS
+# ============================================================
 
-CLASSIFIER_MODEL_DIR = MODEL_DIR / "classifiers"
-FEATURE_PREDICTOR_MODEL_DIR = MODEL_DIR / "feature_predictors"
+BERT_EMBEDDINGS_PATH = (
+    OUTPUTS_DIR / "bert_embeddings.npy"
+)
 
-
-# Frozen classifier artifacts
-RF_MODEL_PATH = CLASSIFIER_MODEL_DIR / "random_forest.pkl"
-SVM_MODEL_PATH = CLASSIFIER_MODEL_DIR / "svm.pkl"
-GNB_MODEL_PATH = CLASSIFIER_MODEL_DIR / "gaussian_nb.pkl"
-LOGISTIC_MODEL_PATH = CLASSIFIER_MODEL_DIR / "logistic_regression.pkl"
-
-
-# Text -> feature prediction models
-DISTILBERT_MODEL_DIR = FEATURE_PREDICTOR_MODEL_DIR / "distilbert"
-LSTM_MODEL_DIR = FEATURE_PREDICTOR_MODEL_DIR / "lstm"
-
-TARGET_STATS_PATH = FEATURE_PREDICTOR_MODEL_DIR / "target_stats.npz"
-
-
-# =============================================================================
-# OUTPUT FILES
-# =============================================================================
-
-FEATURE_PREDICTIONS_PATH = OUTPUT_DIR / "feature_predictions.csv"
-
-FEATURE_EVALUATION_PATH = OUTPUT_DIR / "feature_prediction_metrics.csv"
-
-DOWNSTREAM_EVALUATION_PATH = OUTPUT_DIR / "downstream_classifier_metrics.csv"
-
-PREDICTED_CLASSIFIERS_PATH = OUTPUT_DIR / "downstream_predictions.csv"
-
-CONFUSION_MATRIX_DIR = OUTPUT_DIR / "confusion_matrices"
-
-
-# =============================================================================
-# ORIGINAL DATASET COLUMNS
-# =============================================================================
-
-URL_COLUMN = "url"
-TEXT_COLUMN = "text"
-TITLE_COLUMN = "title"
-
-SHARES_COLUMN = "shares"
-TARGET_COLUMN = "popularity_class"
-
-
-# =============================================================================
-# TEXT STATISTICS
-# =============================================================================
-#
-# These are properties that can be derived from the article text itself.
-#
-
-TEXT_STAT_FEATURE_COLUMNS = (
-    "n_tokens_title",
-    "n_tokens_content",
-    "n_unique_tokens",
-    "n_non_stop_words",
-    "n_non_stop_unique_tokens",
-    "average_token_length",
+BERT_EMBEDDING_METADATA_PATH = (
+    OUTPUTS_DIR / "bert_embedding_metadata.csv"
 )
 
 
-# =============================================================================
-# SENTIMENT / SUBJECTIVITY FEATURES
-# =============================================================================
+# ============================================================
+# FEATURE RECONSTRUCTION OUTPUTS
+# ============================================================
 
-SENTIMENT_FEATURE_COLUMNS = (
+FEATURE_PREDICTIONS_PATH = (
+    OUTPUTS_DIR / "feature_predictions.csv"
+)
+
+FEATURE_PREDICTION_METRICS_PATH = (
+    OUTPUTS_DIR / "feature_prediction_metrics.csv"
+)
+
+
+# ============================================================
+# MULTI-TASK MODEL ARTIFACTS
+# ============================================================
+
+FEATURE_PREDICTOR_MODEL_PATH = (
+    MODELS_DIR / "feature_predictor.pt"
+)
+
+FEATURE_TARGET_SCALER_PATH = (
+    MODELS_DIR / "feature_target_scaler.pkl"
+)
+
+FEATURE_SPLIT_INDICES_PATH = (
+    OUTPUTS_DIR / "feature_split_indices.npz"
+)
+
+
+# ============================================================
+# SENTIMENT FEATURES
+# ============================================================
+
+SENTIMENT_FEATURE_COLUMNS = [
     "global_subjectivity",
     "global_sentiment_polarity",
     "global_rate_positive_words",
     "global_rate_negative_words",
     "rate_positive_words",
     "rate_negative_words",
-
     "avg_positive_polarity",
     "min_positive_polarity",
     "max_positive_polarity",
-
     "avg_negative_polarity",
     "min_negative_polarity",
     "max_negative_polarity",
-
     "title_subjectivity",
     "title_sentiment_polarity",
     "abs_title_subjectivity",
     "abs_title_sentiment_polarity",
+]
+
+SENTIMENT_FEATURE_COUNT = len(
+    SENTIMENT_FEATURE_COLUMNS
 )
 
 
-# =============================================================================
-# LDA TOPIC FEATURES
-# =============================================================================
+# ============================================================
+# LDA FEATURES
+# ============================================================
 
-LDA_FEATURE_COLUMNS = (
+LDA_FEATURE_COLUMNS = [
     "LDA_00",
     "LDA_01",
     "LDA_02",
     "LDA_03",
     "LDA_04",
+]
+
+LDA_FEATURE_COUNT = len(
+    LDA_FEATURE_COLUMNS
 )
 
 
-# =============================================================================
-# CONTENT CHANNEL FEATURES
-# =============================================================================
-#
-# These are binary indicators representing the article's content channel.
-# They are not NLP features in the narrow sense, but they are content/text
-# derived and can potentially be inferred from article text.
-#
+# ============================================================
+# CHANNEL FEATURES
+# ============================================================
 
-CHANNEL_FEATURE_COLUMNS = (
+CHANNEL_FEATURE_COLUMNS = [
     "data_channel_is_lifestyle",
     "data_channel_is_entertainment",
     "data_channel_is_bus",
     "data_channel_is_socmed",
     "data_channel_is_tech",
     "data_channel_is_world",
+]
+
+CHANNEL_FEATURE_COUNT = len(
+    CHANNEL_FEATURE_COLUMNS
 )
 
 
-# =============================================================================
-# ALL TEXT-DERIVED TARGET FEATURES
-# =============================================================================
-#
-# These are the features that the BERT/DistilBERT and LSTM models will
-# attempt to predict from raw article text.
-#
+# ============================================================
+# STRUCTURAL / WEB FEATURES
+# ============================================================
 
-TEXT_DERIVED_FEATURE_COLUMNS = (
-    TEXT_STAT_FEATURE_COLUMNS
-    + SENTIMENT_FEATURE_COLUMNS
-    + LDA_FEATURE_COLUMNS
-    + CHANNEL_FEATURE_COLUMNS
-)
-
-TEXT_DERIVED_FEATURE_COUNT = len(TEXT_DERIVED_FEATURE_COLUMNS)
-
-
-# Backward-compatible alias.
-# Prefer TEXT_DERIVED_FEATURE_COLUMNS in all new code.
-NLP_FEATURE_COLUMNS = TEXT_DERIVED_FEATURE_COLUMNS
-
-
-# =============================================================================
-# TEXT-DERIVED FEATURE GROUPS
-# =============================================================================
-
-TEXT_DERIVED_FEATURE_GROUPS = {
-    "text_statistics": TEXT_STAT_FEATURE_COLUMNS,
-    "sentiment_subjectivity": SENTIMENT_FEATURE_COLUMNS,
-    "lda_topics": LDA_FEATURE_COLUMNS,
-    "content_channels": CHANNEL_FEATURE_COLUMNS,
-}
-
-
-# =============================================================================
-# FROZEN CLASSIFIER INPUT CONFIGURATION
-# =============================================================================
-#
-# IMPORTANT:
-#
-# The existing RF/SVM/GNB/Logistic Regression classifiers must remain
-# completely unchanged.
-#
-# We intentionally do NOT hardcode their feature ordering here until the
-# exact ordering is recovered from the actual saved classifier artifacts
-# / training code.
-#
-# Once verified, this tuple will contain the exact 58-feature ordering
-# expected by the frozen classifiers.
-#
-
-DOWNSTREAM_FEATURE_COUNT = 58
-
-FROZEN_CLASSIFIER_FEATURE_COLUMNS = ()
-
-# Features that are allowed to be replaced by predictions from the
-# text -> feature models.
-#
-# This remains empty until the exact frozen classifier schema is verified.
-DOWNSTREAM_REPLACEMENT_FEATURES = ()
-
-
-# =============================================================================
-# FEATURES THAT SHOULD REMAIN ORIGINAL
-# =============================================================================
-#
-# These features depend on webpage/article structure rather than plain
-# article text and therefore should not be reconstructed by the text model.
-#
-# Examples from the original dataset include:
-#     num_hrefs
-#     num_self_hrefs
-#     num_imgs
-#     num_videos
-#     num_keywords
-#     keyword statistics
-#     self-reference share statistics
-#
-# This list is informational for now. The exact downstream partition will
-# be established after recovering the frozen classifier feature schema.
-#
-
-STRUCTURAL_FEATURE_COLUMNS = (
+STRUCTURAL_FEATURE_COLUMNS = [
     "num_hrefs",
     "num_self_hrefs",
     "num_imgs",
@@ -265,20 +179,235 @@ STRUCTURAL_FEATURE_COLUMNS = (
     "kw_avg_max",
     "kw_min_avg",
     "kw_max_avg",
-    "kw_avg_avg",
     "self_reference_min_shares",
     "self_reference_max_shares",
     "self_reference_avg_sharess",
+]
+
+STRUCTURAL_FEATURE_COUNT = len(
+    STRUCTURAL_FEATURE_COLUMNS
 )
 
 
-# =============================================================================
-# POPULARITY CLASS CONFIGURATION
-# =============================================================================
+# ============================================================
+# FINAL MODEL FEATURE SPACE
+# ============================================================
+
+# Word features are intentionally absent.
+
+MODEL_FEATURE_COLUMNS = (
+    SENTIMENT_FEATURE_COLUMNS
+    + LDA_FEATURE_COLUMNS
+    + CHANNEL_FEATURE_COLUMNS
+    + STRUCTURAL_FEATURE_COLUMNS
+)
+
+MODEL_FEATURE_COUNT = len(
+    MODEL_FEATURE_COLUMNS
+)
+
+
+# ============================================================
+# RECONSTRUCTED TEXT FEATURE SPACE
+# ============================================================
+
+RECONSTRUCTED_TEXT_FEATURE_COLUMNS = (
+    SENTIMENT_FEATURE_COLUMNS
+    + LDA_FEATURE_COLUMNS
+)
+
+RECONSTRUCTED_TEXT_FEATURE_COUNT = len(
+    RECONSTRUCTED_TEXT_FEATURE_COLUMNS
+)
+
+
+# ============================================================
+# DISTILBERT
+# ============================================================
+
+BERT_MODEL_NAME = "distilbert-base-uncased"
+
+BERT_EMBEDDING_DIM = 768
+
+BERT_MAX_LENGTH = 512
+
+BERT_BATCH_SIZE = 8
+
+
+# ============================================================
+# MULTI-TASK FNN
+# ============================================================
+
+FNN_INPUT_DIM = BERT_EMBEDDING_DIM
+
+FNN_SHARED_DIM_1 = 256
+
+FNN_SHARED_DIM_2 = 128
+
+FNN_SENTIMENT_OUTPUT_DIM = SENTIMENT_FEATURE_COUNT
+
+FNN_LDA_OUTPUT_DIM = LDA_FEATURE_COUNT
+
+FNN_DROPOUT = 0.30
+
+
+# ============================================================
+# FNN TRAINING
+# ============================================================
+
+FNN_BATCH_SIZE = 32
+
+FNN_LEARNING_RATE = 1e-3
+
+FNN_WEIGHT_DECAY = 1e-5
+
+FNN_MAX_EPOCHS = 200
+
+FNN_EARLY_STOPPING_PATIENCE = 20
+
+FNN_MIN_DELTA = 1e-5
+
+
+# Relative weight of the LDA loss.
 #
-# These values reproduce the class boundaries used in the existing
-# preprocessing workflow.
+# Total loss:
 #
+# sentiment_loss + LDA_LOSS_WEIGHT * lda_loss
+
+LDA_LOSS_WEIGHT = 1.0
+
+
+# ============================================================
+# TARGET SCALING
+# ============================================================
+
+NORMALIZE_FEATURE_TARGETS = True
+
+
+# ============================================================
+# FEATURE EVALUATION
+# ============================================================
+
+FEATURE_METRICS = [
+    "MAE",
+    "RMSE",
+    "R2",
+    "Correlation",
+]
+
+
+# ============================================================
+# DATA SPLITTING
+# ============================================================
+
+TRAIN_RATIO = 0.80
+
+VALIDATION_RATIO = 0.10
+
+TEST_RATIO = 0.10
+
+RANDOM_SEED = 42
+
+
+# ============================================================
+# SCRAPING
+# ============================================================
+
+SCRAPE_SAMPLE_SIZE = 1000
+
+SCRAPE_MIN_TEXT_LENGTH = 200
+
+SCRAPE_TIMEOUT = 15
+
+SCRAPE_DELAY = 1.0
+
+SCRAPE_RETRIES = 2
+
+USE_WAYBACK_FALLBACK = True
+
+WAYBACK_TIMEOUT = 20
+
+WAYBACK_RETRIES = 2
+
+
+# ============================================================
+# REQUIRED ORIGINAL DATA COLUMNS
+# ============================================================
+
+# The six removed word features are deliberately absent.
+
+REQUIRED_RAW_COLUMNS = [
+    # Sentiment
+    "global_subjectivity",
+    "global_sentiment_polarity",
+    "global_rate_positive_words",
+    "global_rate_negative_words",
+    "rate_positive_words",
+    "rate_negative_words",
+    "avg_positive_polarity",
+    "min_positive_polarity",
+    "max_positive_polarity",
+    "avg_negative_polarity",
+    "min_negative_polarity",
+    "max_negative_polarity",
+    "title_subjectivity",
+    "title_sentiment_polarity",
+    "abs_title_subjectivity",
+    "abs_title_sentiment_polarity",
+
+    # LDA
+    "LDA_00",
+    "LDA_01",
+    "LDA_02",
+    "LDA_03",
+    "LDA_04",
+
+    # Channel
+    "data_channel_is_lifestyle",
+    "data_channel_is_entertainment",
+    "data_channel_is_bus",
+    "data_channel_is_socmed",
+    "data_channel_is_tech",
+    "data_channel_is_world",
+
+    # Structural / web
+    "num_hrefs",
+    "num_self_hrefs",
+    "num_imgs",
+    "num_videos",
+    "num_keywords",
+    "kw_min_min",
+    "kw_max_min",
+    "kw_avg_min",
+    "kw_min_max",
+    "kw_max_max",
+    "kw_avg_max",
+    "kw_min_avg",
+    "kw_max_avg",
+    "self_reference_min_shares",
+    "self_reference_max_shares",
+    "self_reference_avg_sharess",
+
+    # Target
+    "shares",
+]
+
+
+# ============================================================
+# SCRAPED ARTICLE COLUMNS
+# ============================================================
+
+SCRAPED_ARTICLE_COLUMNS = [
+    "id",
+    "url",
+    "title",
+    "text",
+]
+
+
+# ============================================================
+# POPULARITY CLASSES
+# ============================================================
 
 NUM_CLASSES = 4
 
@@ -296,239 +425,56 @@ CLASS_LABELS = (
 )
 
 
-# =============================================================================
-# SCRAPING CONFIGURATION
-# =============================================================================
-
-SCRAPE_SAMPLE_SIZE = 200
-
-SCRAPE_MIN_TEXT_LENGTH = 200
-
-SCRAPE_TIMEOUT_SECONDS = 15
-
-SCRAPE_DELAY_SECONDS = 1.0
-
-SCRAPE_MAX_RETRIES = 2
-
-USE_WAYBACK_FALLBACK = True
-
-WAYBACK_TIMEOUT_SECONDS = 20
-
-WAYBACK_MAX_RETRIES = 2
-
-
-# =============================================================================
-# DATA SPLIT CONFIGURATION
-# =============================================================================
-
-RANDOM_SEED = 42
-
-TRAIN_SIZE = 0.80
-VALIDATION_SIZE = 0.10
-TEST_SIZE = 0.10
-
-
-# =============================================================================
-# TRANSFORMER CONFIGURATION
-# =============================================================================
-
-TRANSFORMER_MODEL_NAME = "distilbert-base-uncased"
-
-TRANSFORMER_MAX_LENGTH = 512
-
-TRANSFORMER_BATCH_SIZE = 8
-
-TRANSFORMER_LEARNING_RATE = 2e-5
-
-TRANSFORMER_WEIGHT_DECAY = 0.01
-
-TRANSFORMER_EPOCHS = 5
-
-TRANSFORMER_GRADIENT_ACCUMULATION_STEPS = 2
-
-TRANSFORMER_MAX_GRAD_NORM = 1.0
-
-TRANSFORMER_EARLY_STOPPING_PATIENCE = 2
-
-
-# =============================================================================
-# LSTM CONFIGURATION
-# =============================================================================
-
-LSTM_EMBEDDING_DIM = 128
-
-LSTM_HIDDEN_DIM = 256
-
-LSTM_NUM_LAYERS = 2
-
-LSTM_DROPOUT = 0.30
-
-LSTM_BIDIRECTIONAL = True
-
-LSTM_BATCH_SIZE = 32
-
-LSTM_LEARNING_RATE = 1e-3
-
-LSTM_WEIGHT_DECAY = 1e-5
-
-LSTM_EPOCHS = 10
-
-LSTM_MAX_SEQUENCE_LENGTH = 512
-
-LSTM_EARLY_STOPPING_PATIENCE = 2
-
-
-# =============================================================================
-# TARGET NORMALIZATION
-# =============================================================================
-#
-# Multi-output regression targets have very different scales.
-# Standardizing the targets before MSE training prevents high-magnitude
-# targets from dominating the loss.
-#
-
-NORMALIZE_TARGETS = True
-
-TARGET_MEAN_FILENAME = "target_mean.npy"
-
-TARGET_STD_FILENAME = "target_std.npy"
-
-TARGET_MEAN_PATH = FEATURE_PREDICTOR_MODEL_DIR / TARGET_MEAN_FILENAME
-
-TARGET_STD_PATH = FEATURE_PREDICTOR_MODEL_DIR / TARGET_STD_FILENAME
-
-
-# =============================================================================
-# LOSS CONFIGURATION
-# =============================================================================
-
-LOSS_FUNCTION = "mse"
-
-
-# =============================================================================
-# FEATURE-PREDICTION EVALUATION
-# =============================================================================
-
-FEATURE_PREDICTION_METRICS = (
-    "r2",
-    "mae",
-)
-
-
-# =============================================================================
-# DOWNSTREAM CLASSIFIER EVALUATION
-# =============================================================================
-
-DOWNSTREAM_METRICS = (
-    "accuracy",
-    "macro_f1",
-    "weighted_f1",
-)
-
-GENERATE_CONFUSION_MATRICES = True
-
-
-# =============================================================================
-# REPRODUCIBILITY
-# =============================================================================
-
-PYTHONHASHSEED = RANDOM_SEED
-
-
-# =============================================================================
-# DIRECTORY CREATION
-# =============================================================================
-
-def create_required_directories():
-    """
-    Create all directories required by the project.
-    """
-
-    directories = (
-        DATA_DIR,
-        MODEL_DIR,
-        OUTPUT_DIR,
-        CLASSIFIER_MODEL_DIR,
-        FEATURE_PREDICTOR_MODEL_DIR,
-        DISTILBERT_MODEL_DIR,
-        LSTM_MODEL_DIR,
-        CONFUSION_MATRIX_DIR,
-    )
-
-    for directory in directories:
-        directory.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
-
-
-# =============================================================================
-# CONFIGURATION VALIDATION
-# =============================================================================
+# ============================================================
+# CONFIG VALIDATION
+# ============================================================
 
 def validate_config():
-    """
-    Validate basic configuration consistency.
+    """Validate configuration consistency."""
 
-    This does not require the datasets or model artifacts to exist.
-    """
+    assert abs(
+        TRAIN_RATIO
+        + VALIDATION_RATIO
+        + TEST_RATIO
+        - 1.0
+    ) < 1e-9
 
-    if abs(
-        TRAIN_SIZE + VALIDATION_SIZE + TEST_SIZE - 1.0
-    ) > 1e-8:
-        raise ValueError(
-            "TRAIN_SIZE + VALIDATION_SIZE + TEST_SIZE must equal 1.0"
-        )
+    assert SENTIMENT_FEATURE_COUNT == 16
 
-    if NUM_CLASSES != len(CLASS_LABELS):
-        raise ValueError(
-            "NUM_CLASSES must match the number of CLASS_LABELS."
-        )
+    assert LDA_FEATURE_COUNT == 5
 
-    if len(CLASS_BOUNDARIES) != NUM_CLASSES - 1:
-        raise ValueError(
-            "Number of class boundaries must equal NUM_CLASSES - 1."
-        )
+    assert RECONSTRUCTED_TEXT_FEATURE_COUNT == 21
 
-    if len(TEXT_DERIVED_FEATURE_COLUMNS) != TEXT_DERIVED_FEATURE_COUNT:
-        raise ValueError(
-            "TEXT_DERIVED_FEATURE_COUNT does not match "
-            "TEXT_DERIVED_FEATURE_COLUMNS."
-        )
+    assert CHANNEL_FEATURE_COUNT == 6
 
-    if DOWNSTREAM_FEATURE_COUNT <= 0:
-        raise ValueError(
-            "DOWNSTREAM_FEATURE_COUNT must be positive."
-        )
+    assert FNN_INPUT_DIM == 768
 
-
-# =============================================================================
-# MAIN
-# =============================================================================
-
-if __name__ == "__main__":
-    validate_config()
-    create_required_directories()
-
-    print("=" * 60)
-    print("CONFIGURATION")
-    print("=" * 60)
-
-    print(f"Project root: {PROJECT_ROOT}")
-    print(f"Raw data:    {RAW_DATA_PATH}")
-    print(f"Processed:   {PROCESSED_DATA_PATH}")
-
-    print()
-    print(
-        f"Text-derived target features: "
-        f"{TEXT_DERIVED_FEATURE_COUNT}"
+    assert (
+        FNN_SENTIMENT_OUTPUT_DIM
+        == SENTIMENT_FEATURE_COUNT
     )
 
-    for group_name, columns in TEXT_DERIVED_FEATURE_GROUPS.items():
-        print(f"  {group_name}: {len(columns)}")
+    assert (
+        FNN_LDA_OUTPUT_DIM
+        == LDA_FEATURE_COUNT
+    )
 
-    print()
-    print(f"Frozen classifier feature count: {DOWNSTREAM_FEATURE_COUNT}")
+    assert MODEL_FEATURE_COUNT == (
+        SENTIMENT_FEATURE_COUNT
+        + LDA_FEATURE_COUNT
+        + CHANNEL_FEATURE_COUNT
+        + STRUCTURAL_FEATURE_COUNT
+    )
 
-    print()
-    print("Configuration is valid.")
+    assert FNN_BATCH_SIZE > 0
+
+    assert FNN_MAX_EPOCHS > 0
+
+    assert FNN_LEARNING_RATE > 0
+
+    assert 0.0 <= FNN_DROPOUT < 1.0
+
+    assert LDA_LOSS_WEIGHT >= 0.0
+
+
+validate_config()

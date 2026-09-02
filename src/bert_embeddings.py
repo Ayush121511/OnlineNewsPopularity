@@ -1,59 +1,56 @@
+# src/bert_embeddings.py
+
 """
-bert_embeddings.py
+Frozen DistilBERT embedding extraction.
 
-Extract frozen DistilBERT embeddings from scraped article text.
+This module:
+    1. Loads the matched scraped article dataset.
+    2. Loads frozen DistilBERT.
+    3. Extracts one 768-dimensional embedding per article.
+    4. Saves embeddings and article-ID metadata.
 
-Pipeline:
-
-    scraped + matched articles
-              ↓
-        DistilBERT tokenizer
-              ↓
-       Frozen DistilBERT
-              ↓
-        768-d embeddings
-              ↓
-        saved to disk
-
-The embeddings are later used as input to feed-forward neural networks.
-
-No DistilBERT parameters are trained in this module.
+DistilBERT is used ONLY as a frozen feature extractor.
+No BERT parameters are trained.
 """
-
-from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
 import torch
-from torch.utils.data import DataLoader, Dataset
-from transformers import AutoModel, AutoTokenizer
+
+from torch.utils.data import (
+    Dataset,
+    DataLoader,
+)
+
+from transformers import (
+    AutoModel,
+    AutoTokenizer,
+)
 
 from config import (
-    TRANSFORMER_MODEL_NAME,
-    TRANSFORMER_MAX_LENGTH,
-    TRANSFORMER_BATCH_SIZE,
-    RANDOM_SEED,
-    OUTPUT_DIR,
+    BERT_MODEL_NAME,
+    BERT_MAX_LENGTH,
+    BERT_BATCH_SIZE,
+    BERT_EMBEDDING_DIM,
+    BERT_EMBEDDINGS_PATH,
+    BERT_EMBEDDING_METADATA_PATH,
 )
-from data_loader import load_feature_prediction_dataset
+
+from data_loader import (
+    load_feature_prediction_dataset,
+)
 
 
-# =============================================================================
-# OUTPUT PATHS
-# =============================================================================
-
-EMBEDDINGS_PATH = OUTPUT_DIR / "bert_embeddings.npy"
-EMBEDDING_METADATA_PATH = OUTPUT_DIR / "bert_embedding_metadata.csv"
-
-
-# =============================================================================
+# ============================================================
 # DEVICE
-# =============================================================================
+# ============================================================
 
-def get_device() -> torch.device:
+def get_device():
     """
     Select the best available device.
+
+    Priority:
+        MPS -> CUDA -> CPU
     """
 
     if torch.backends.mps.is_available():
@@ -65,47 +62,80 @@ def get_device() -> torch.device:
     return torch.device("cpu")
 
 
-# =============================================================================
+# ============================================================
 # DATASET
-# =============================================================================
+# ============================================================
 
 class ArticleTextDataset(Dataset):
     """
-    PyTorch dataset containing article text.
+    Dataset containing article IDs and raw article text.
 
-    The dataset returns only text and article ID.
-    Target features are deliberately not passed to the embedding model.
+    We use title + article text as the transformer input.
     """
 
-    def __init__(
-        self,
-        dataframe: pd.DataFrame,
-    ):
-        self.dataframe = dataframe.reset_index(
-            drop=True
-        )
+    def __init__(self, dataframe):
+        self.ids = dataframe["id"].to_numpy()
 
-    def __len__(self) -> int:
-        return len(self.dataframe)
+        self.texts = (
+            dataframe["title"].fillna("").astype(str)
+            + " "
+            + dataframe["text"].fillna("").astype(str)
+        ).tolist()
 
-    def __getitem__(self, index: int) -> dict:
-        row = self.dataframe.iloc[index]
+    def __len__(self):
+        return len(self.texts)
 
+    def __getitem__(self, index):
         return {
-            "id": int(row["id"]),
-            "text": str(row["text"]),
+            "id": int(self.ids[index]),
+            "text": self.texts[index],
         }
 
 
-# =============================================================================
-# COLLATE FUNCTION
-# =============================================================================
+# ============================================================
+# MODEL LOADING
+# ============================================================
 
-def create_collate_fn(
-    tokenizer,
-):
+def load_model_and_tokenizer(device):
     """
-    Create a batch collation function using the configured tokenizer.
+    Load DistilBERT tokenizer and model.
+
+    All model parameters are frozen.
+    """
+
+    print(
+        f"Loading model: {BERT_MODEL_NAME}"
+    )
+
+    tokenizer = AutoTokenizer.from_pretrained(
+        BERT_MODEL_NAME
+    )
+
+    model = AutoModel.from_pretrained(
+        BERT_MODEL_NAME
+    )
+
+    model.to(device)
+
+    # --------------------------------------------------------
+    # Freeze BERT
+    # --------------------------------------------------------
+
+    for parameter in model.parameters():
+        parameter.requires_grad = False
+
+    model.eval()
+
+    return tokenizer, model
+
+
+# ============================================================
+# COLLATE FUNCTION
+# ============================================================
+
+def make_collate_fn(tokenizer):
+    """
+    Create a batch collation function using the tokenizer.
     """
 
     def collate_fn(batch):
@@ -124,407 +154,338 @@ def create_collate_fn(
             texts,
             padding=True,
             truncation=True,
-            max_length=TRANSFORMER_MAX_LENGTH,
+            max_length=BERT_MAX_LENGTH,
             return_tensors="pt",
         )
 
-        encoded["article_ids"] = ids
-
-        return encoded
+        return {
+            "ids": ids,
+            "input_ids": encoded["input_ids"],
+            "attention_mask": encoded["attention_mask"],
+        }
 
     return collate_fn
 
 
-# =============================================================================
-# MODEL
-# =============================================================================
+# ============================================================
+# EMBEDDING EXTRACTION
+# ============================================================
 
-def load_embedding_model(
-    device: torch.device,
+def extract_embeddings(
+    dataset,
+    tokenizer,
+    model,
+    device,
 ):
     """
-    Load the pretrained transformer and tokenizer.
+    Extract one 768-dimensional embedding per article.
 
-    The transformer is completely frozen.
+    We use the first token representation from DistilBERT,
+    corresponding to the leading special token representation.
+
+    Returns:
+        embeddings:
+            numpy array with shape (N, 768)
+
+        ids:
+            numpy array containing article IDs in exactly the
+            same order as the embeddings.
     """
 
-    print(
-        f"Loading transformer: "
-        f"{TRANSFORMER_MODEL_NAME}"
+    article_dataset = ArticleTextDataset(
+        dataset
     )
 
-    tokenizer = AutoTokenizer.from_pretrained(
-        TRANSFORMER_MODEL_NAME
-    )
-
-    model = AutoModel.from_pretrained(
-        TRANSFORMER_MODEL_NAME
-    )
-
-    # -------------------------------------------------------------------------
-    # Freeze every transformer parameter.
-    # -------------------------------------------------------------------------
-
-    for parameter in model.parameters():
-        parameter.requires_grad = False
-
-    model.eval()
-    model.to(device)
-
-    return tokenizer, model
-
-
-# =============================================================================
-# EMBEDDING EXTRACTION
-# =============================================================================
-
-@torch.no_grad()
-def extract_embeddings(
-    dataframe: pd.DataFrame,
-    model,
-    tokenizer,
-    device: torch.device,
-) -> tuple[np.ndarray, list[int]]:
-    """
-    Extract one fixed-size embedding for every article.
-
-    We use the first-token ([CLS]) representation.
-
-    Returns
-    -------
-    embeddings:
-        Array of shape:
-
-            (number_of_articles, hidden_size)
-
-    article_ids:
-        IDs corresponding exactly to the embedding rows.
-    """
-
-    dataset = ArticleTextDataset(
-        dataframe
-    )
-
-    collate_fn = create_collate_fn(
-        tokenizer
-    )
-
-    loader = DataLoader(
-        dataset,
-        batch_size=TRANSFORMER_BATCH_SIZE,
+    dataloader = DataLoader(
+        article_dataset,
+        batch_size=BERT_BATCH_SIZE,
         shuffle=False,
-        collate_fn=collate_fn,
+        collate_fn=make_collate_fn(
+            tokenizer
+        ),
     )
 
     all_embeddings = []
     all_ids = []
 
-    print(
-        f"Extracting embeddings for "
-        f"{len(dataset):,} articles..."
-    )
+    total = len(article_dataset)
 
-    for batch_number, batch in enumerate(
-        loader,
-        start=1,
-    ):
+    with torch.no_grad():
 
-        article_ids = batch.pop(
-            "article_ids"
-        )
+        for batch_number, batch in enumerate(
+            dataloader,
+            start=1,
+        ):
 
-        input_ids = batch["input_ids"].to(
-            device
-        )
+            input_ids = batch[
+                "input_ids"
+            ].to(device)
 
-        attention_mask = batch[
-            "attention_mask"
-        ].to(device)
+            attention_mask = batch[
+                "attention_mask"
+            ].to(device)
 
-        # -------------------------------------------------------------
-        # Frozen transformer forward pass
-        # -------------------------------------------------------------
+            outputs = model(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+            )
 
-        outputs = model(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-        )
+            # First-token representation.
+            batch_embeddings = (
+                outputs.last_hidden_state[
+                    :,
+                    0,
+                    :
+                ]
+            )
 
-        # -------------------------------------------------------------
-        # First-token representation
-        #
-        # DistilBERT has no pooled_output.
-        # The representation of the first token is used as the
-        # fixed article embedding.
-        # -------------------------------------------------------------
+            batch_embeddings = (
+                batch_embeddings
+                .detach()
+                .cpu()
+                .numpy()
+            )
 
-        embeddings = outputs.last_hidden_state[
-            :,
-            0,
-            :,
-        ]
+            all_embeddings.append(
+                batch_embeddings
+            )
 
-        # Move to CPU immediately so GPU/MPS memory stays low.
-        embeddings = embeddings.cpu().numpy()
+            all_ids.extend(
+                batch["ids"]
+            )
 
-        all_embeddings.append(
-            embeddings
-        )
+            processed = min(
+                batch_number
+                * BERT_BATCH_SIZE,
+                total,
+            )
 
-        all_ids.extend(
-            article_ids
-        )
-
-        print(
-            f"  Batch "
-            f"{batch_number}/{len(loader)}"
-        )
+            print(
+                f"Processed embeddings: "
+                f"{processed:,}/{total:,}"
+            )
 
     embeddings = np.concatenate(
         all_embeddings,
         axis=0,
     )
 
-    return embeddings, all_ids
+    ids = np.asarray(
+        all_ids,
+        dtype=np.int64,
+    )
+
+    return embeddings, ids
 
 
-# =============================================================================
-# SAVE EMBEDDINGS
-# =============================================================================
+# ============================================================
+# VALIDATION
+# ============================================================
+
+def validate_embeddings(
+    embeddings,
+    ids,
+    dataset,
+):
+    """
+    Validate embedding dimensions and article-ID alignment.
+    """
+
+    # --------------------------------------------------------
+    # Shape
+    # --------------------------------------------------------
+
+    if embeddings.ndim != 2:
+        raise ValueError(
+            f"Expected 2D embeddings, "
+            f"got shape {embeddings.shape}"
+        )
+
+    if embeddings.shape[1] != BERT_EMBEDDING_DIM:
+        raise ValueError(
+            f"Expected embedding dimension "
+            f"{BERT_EMBEDDING_DIM}, "
+            f"got {embeddings.shape[1]}"
+        )
+
+    # --------------------------------------------------------
+    # Number of rows
+    # --------------------------------------------------------
+
+    if len(embeddings) != len(dataset):
+        raise ValueError(
+            "Number of embeddings does not match "
+            "number of dataset articles."
+        )
+
+    if len(ids) != len(dataset):
+        raise ValueError(
+            "Number of embedding IDs does not match "
+            "number of dataset articles."
+        )
+
+    # --------------------------------------------------------
+    # IDs
+    # --------------------------------------------------------
+
+    dataset_ids = dataset[
+        "id"
+    ].to_numpy(dtype=np.int64)
+
+    if not np.array_equal(
+        ids,
+        dataset_ids,
+    ):
+        raise ValueError(
+            "Embedding IDs are not aligned with "
+            "the canonical dataset order."
+        )
+
+    if not np.isfinite(
+        embeddings
+    ).all():
+        raise ValueError(
+            "Embeddings contain NaN or infinite values."
+        )
+
+
+# ============================================================
+# SAVE
+# ============================================================
 
 def save_embeddings(
-    embeddings: np.ndarray,
-    article_ids: list[int],
-    dataframe: pd.DataFrame,
-) -> None:
+    embeddings,
+    ids,
+):
     """
-    Save embeddings and their metadata.
-
-    Metadata preserves the mapping:
-
-        embedding row ↔ article ID ↔ URL
-
-    This is essential because the embeddings and target features must
-    never become misaligned.
+    Save embeddings and their article IDs.
     """
 
-    OUTPUT_DIR.mkdir(
+    BERT_EMBEDDINGS_PATH.parent.mkdir(
         parents=True,
         exist_ok=True,
     )
 
     np.save(
-        EMBEDDINGS_PATH,
+        BERT_EMBEDDINGS_PATH,
         embeddings,
     )
 
-    metadata = dataframe[
-        [
-            "id",
-            "url",
-        ]
-    ].copy()
-
-    # Reorder according to the embedding IDs.
-    id_to_row = {
-        int(article_id): index
-        for index, article_id
-        in enumerate(article_ids)
-    }
-
-    metadata["_embedding_row"] = (
-        metadata["id"]
-        .astype(int)
-        .map(id_to_row)
-    )
-
-    metadata = metadata.sort_values(
-        "_embedding_row"
-    )
+    metadata = pd.DataFrame({
+        "id": ids,
+    })
 
     metadata.to_csv(
-        EMBEDDING_METADATA_PATH,
+        BERT_EMBEDDING_METADATA_PATH,
         index=False,
     )
 
-    print()
-    print(
-        f"Embeddings saved to:\n"
-        f"{EMBEDDINGS_PATH}"
-    )
 
-    print(
-        f"Metadata saved to:\n"
-        f"{EMBEDDING_METADATA_PATH}"
-    )
+# ============================================================
+# MAIN
+# ============================================================
 
+def main():
 
-# =============================================================================
-# VALIDATION
-# =============================================================================
-
-def validate_embeddings(
-    embeddings: np.ndarray,
-    article_ids: list[int],
-    dataframe: pd.DataFrame,
-) -> None:
-    """
-    Validate embedding dimensions and article alignment.
-    """
-
-    if embeddings.ndim != 2:
-        raise ValueError(
-            f"Expected a 2D embedding array, "
-            f"got shape {embeddings.shape}."
-        )
-
-    if embeddings.shape[0] != len(dataframe):
-        raise ValueError(
-            "Number of embeddings does not match "
-            "number of articles."
-        )
-
-    if embeddings.shape[0] != len(article_ids):
-        raise ValueError(
-            "Number of embedding IDs does not match "
-            "number of embeddings."
-        )
-
-    if not np.isfinite(embeddings).all():
-        raise ValueError(
-            "Embeddings contain NaN or infinite values."
-        )
-
-    dataframe_ids = (
-        dataframe["id"]
-        .astype(int)
-        .tolist()
-    )
-
-    if dataframe_ids != article_ids:
-        raise ValueError(
-            "Embedding article IDs are not aligned "
-            "with the input dataframe."
-        )
-
-
-# =============================================================================
-# COMPLETE PIPELINE
-# =============================================================================
-
-def run_embedding_extraction() -> None:
-    """
-    Execute the complete frozen-transformer embedding pipeline.
-    """
-
-    print("=" * 70)
+    print("=" * 80)
     print("FROZEN DISTILBERT EMBEDDING EXTRACTION")
-    print("=" * 70)
-
-    # -------------------------------------------------------------------------
-    # Reproducibility
-    # -------------------------------------------------------------------------
-
-    torch.manual_seed(
-        RANDOM_SEED
-    )
-
-    np.random.seed(
-        RANDOM_SEED
-    )
-
-    # -------------------------------------------------------------------------
-    # Load matched text + target dataset
-    # -------------------------------------------------------------------------
-
-    dataframe = (
-        load_feature_prediction_dataset()
-    )
-
-    print(
-        f"Articles available: "
-        f"{len(dataframe):,}"
-    )
-
-    # -------------------------------------------------------------------------
-    # Device
-    # -------------------------------------------------------------------------
+    print("=" * 80)
 
     device = get_device()
 
     print(
-        f"Device: {device}"
+        f"\nDevice: {device}"
     )
 
-    # -------------------------------------------------------------------------
-    # Load frozen transformer
-    # -------------------------------------------------------------------------
+    # --------------------------------------------------------
+    # Load canonical dataset
+    # --------------------------------------------------------
 
-    tokenizer, model = load_embedding_model(
-        device
+    dataset = load_feature_prediction_dataset()
+
+    print(
+        f"Articles loaded: "
+        f"{len(dataset):,}"
     )
 
-    # -------------------------------------------------------------------------
-    # Extract embeddings
-    # -------------------------------------------------------------------------
+    # --------------------------------------------------------
+    # Load frozen model
+    # --------------------------------------------------------
 
-    embeddings, article_ids = (
-        extract_embeddings(
-            dataframe=dataframe,
-            model=model,
-            tokenizer=tokenizer,
-            device=device,
+    tokenizer, model = (
+        load_model_and_tokenizer(
+            device
         )
     )
 
-    # -------------------------------------------------------------------------
+    # --------------------------------------------------------
+    # Extract
+    # --------------------------------------------------------
+
+    embeddings, ids = extract_embeddings(
+        dataset=dataset,
+        tokenizer=tokenizer,
+        model=model,
+        device=device,
+    )
+
+    # --------------------------------------------------------
     # Validate
-    # -------------------------------------------------------------------------
+    # --------------------------------------------------------
 
     validate_embeddings(
         embeddings=embeddings,
-        article_ids=article_ids,
-        dataframe=dataframe,
+        ids=ids,
+        dataset=dataset,
     )
 
-    # -------------------------------------------------------------------------
+    # --------------------------------------------------------
     # Save
-    # -------------------------------------------------------------------------
+    # --------------------------------------------------------
 
     save_embeddings(
-        embeddings=embeddings,
-        article_ids=article_ids,
-        dataframe=dataframe,
+        embeddings,
+        ids,
     )
 
-    # -------------------------------------------------------------------------
+    # --------------------------------------------------------
     # Summary
-    # -------------------------------------------------------------------------
+    # --------------------------------------------------------
 
     print()
-    print("=" * 70)
+    print("=" * 80)
     print("EMBEDDING EXTRACTION COMPLETE")
-    print("=" * 70)
+    print("=" * 80)
 
     print(
-        f"Number of articles : "
-        f"{embeddings.shape[0]:,}"
-    )
-
-    print(
-        f"Embedding dimension : "
-        f"{embeddings.shape[1]:,}"
-    )
-
-    print(
-        f"Embedding shape     : "
+        f"Embedding shape: "
         f"{embeddings.shape}"
     )
 
+    print(
+        f"Number of articles: "
+        f"{len(embeddings):,}"
+    )
 
-# =============================================================================
-# ENTRY POINT
-# =============================================================================
+    print(
+        f"Embedding dimension: "
+        f"{embeddings.shape[1]}"
+    )
+
+    print(
+        f"\nEmbeddings saved to:\n"
+        f"{BERT_EMBEDDINGS_PATH}"
+    )
+
+    print(
+        f"\nMetadata saved to:\n"
+        f"{BERT_EMBEDDING_METADATA_PATH}"
+    )
+
+    print(
+        "\nFrozen BERT embedding check: PASSED"
+    )
+
 
 if __name__ == "__main__":
-    run_embedding_extraction()
+    main()
