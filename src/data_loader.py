@@ -38,7 +38,6 @@ from config import (
     MODEL_FEATURE_COLUMNS,
     REQUIRED_RAW_COLUMNS,
     SCRAPED_ARTICLE_COLUMNS,
-    CLASS_BOUNDARIES,
 )
 
 
@@ -205,21 +204,22 @@ def load_retrieval_metadata(
 
 def assign_popularity_class(
     shares: float,
+    class_boundaries: tuple[float, float, float],
 ) -> int:
-    """Assign one of the four project popularity classes."""
+    """Assign one of four popularity classes using dataset quartiles."""
 
     if pd.isna(shares):
         raise ValueError(
             "Cannot classify missing shares."
         )
 
-    if shares <= CLASS_BOUNDARIES[0]:
+    if shares <= class_boundaries[0]:
         return 0
 
-    if shares <= CLASS_BOUNDARIES[1]:
+    if shares <= class_boundaries[1]:
         return 1
 
-    if shares <= CLASS_BOUNDARIES[2]:
+    if shares <= class_boundaries[2]:
         return 2
 
     return 3
@@ -417,9 +417,23 @@ def build_text_feature_dataset(
         errors="coerce",
     )
 
+    # The project report defines four popularity classes using
+    # the 25th, 50th, and 75th percentiles of shares.
+    # Compute these boundaries from the current full raw dataset
+    # rather than hard-coding dataset-specific share values.
+    class_boundaries = tuple(
+        np.percentile(
+            dataset["shares"].dropna().to_numpy(dtype=np.float64),
+            [25, 50, 75],
+        )
+    )
+
     dataset["popularity_class"] = (
         dataset["shares"].apply(
-            assign_popularity_class
+            lambda shares: assign_popularity_class(
+                shares,
+                class_boundaries,
+            )
         )
     )
 

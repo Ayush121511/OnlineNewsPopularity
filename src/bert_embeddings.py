@@ -1,31 +1,30 @@
 # src/bert_embeddings.py
 
 """
-Frozen DistilBERT embedding extraction.
+Frozen DistilBERT embedding extraction for the LDA-only experiment.
 
-This module:
-    1. Loads the matched scraped article dataset.
-    2. Loads frozen DistilBERT.
-    3. Extracts one 768-dimensional embedding per article.
-    4. Saves embeddings and article-ID metadata.
+Pipeline
+--------
+Article title + text
+        ↓
+Frozen DistilBERT
+        ↓
+masked mean pooling
+        ↓
+768-dimensional embedding
+        ↓
+saved for LDA feature prediction
 
-DistilBERT is used ONLY as a frozen feature extractor.
-No BERT parameters are trained.
+DistilBERT is never fine-tuned.
 """
 
 import numpy as np
 import pandas as pd
 import torch
 
-from torch.utils.data import (
-    Dataset,
-    DataLoader,
-)
+from torch.utils.data import Dataset, DataLoader
 
-from transformers import (
-    AutoModel,
-    AutoTokenizer,
-)
+from transformers import AutoModel, AutoTokenizer
 
 from config import (
     BERT_MODEL_NAME,
@@ -36,9 +35,7 @@ from config import (
     BERT_EMBEDDING_METADATA_PATH,
 )
 
-from data_loader import (
-    load_feature_prediction_dataset,
-)
+from data_loader import load_feature_prediction_dataset
 
 
 # ============================================================
@@ -46,12 +43,7 @@ from data_loader import (
 # ============================================================
 
 def get_device():
-    """
-    Select the best available device.
-
-    Priority:
-        MPS -> CUDA -> CPU
-    """
+    """Select the best available PyTorch device."""
 
     if torch.backends.mps.is_available():
         return torch.device("mps")
@@ -68,9 +60,10 @@ def get_device():
 
 class ArticleTextDataset(Dataset):
     """
-    Dataset containing article IDs and raw article text.
+    Dataset containing article IDs and article text.
 
-    We use title + article text as the transformer input.
+    Title and article body are concatenated because both are
+    part of the textual information available for reconstruction.
     """
 
     def __init__(self, dataframe):
@@ -93,14 +86,14 @@ class ArticleTextDataset(Dataset):
 
 
 # ============================================================
-# MODEL LOADING
+# MODEL
 # ============================================================
 
 def load_model_and_tokenizer(device):
     """
-    Load DistilBERT tokenizer and model.
+    Load DistilBERT and tokenizer.
 
-    All model parameters are frozen.
+    All DistilBERT parameters are frozen.
     """
 
     print(
@@ -117,10 +110,6 @@ def load_model_and_tokenizer(device):
 
     model.to(device)
 
-    # --------------------------------------------------------
-    # Freeze BERT
-    # --------------------------------------------------------
-
     for parameter in model.parameters():
         parameter.requires_grad = False
 
@@ -130,13 +119,11 @@ def load_model_and_tokenizer(device):
 
 
 # ============================================================
-# COLLATE FUNCTION
+# COLLATE
 # ============================================================
 
 def make_collate_fn(tokenizer):
-    """
-    Create a batch collation function using the tokenizer.
-    """
+    """Create tokenizer-based batch collation."""
 
     def collate_fn(batch):
 
@@ -168,6 +155,63 @@ def make_collate_fn(tokenizer):
 
 
 # ============================================================
+# MASKED MEAN POOLING
+# ============================================================
+
+def mean_pooling(
+    hidden_states: torch.Tensor,
+    attention_mask: torch.Tensor,
+) -> torch.Tensor:
+    """
+    Compute masked mean pooling over token embeddings.
+
+    Args:
+        hidden_states:
+            Shape:
+                (batch_size, sequence_length, hidden_dim)
+
+        attention_mask:
+            Shape:
+                (batch_size, sequence_length)
+
+    Returns:
+        Pooled embeddings:
+            (batch_size, hidden_dim)
+    """
+
+    # Convert mask from:
+    #   (batch_size, sequence_length)
+    # to:
+    #   (batch_size, sequence_length, 1)
+    mask = attention_mask.unsqueeze(-1).to(
+        hidden_states.dtype
+    )
+
+    # Zero out padding-token embeddings.
+    masked_hidden_states = (
+        hidden_states * mask
+    )
+
+    # Sum valid token embeddings.
+    summed_embeddings = (
+        masked_hidden_states.sum(dim=1)
+    )
+
+    # Number of valid tokens for each article.
+    token_counts = (
+        mask.sum(dim=1).clamp(min=1e-9)
+    )
+
+    # Mean over valid tokens only.
+    pooled_embeddings = (
+        summed_embeddings
+        / token_counts
+    )
+
+    return pooled_embeddings
+
+
+# ============================================================
 # EMBEDDING EXTRACTION
 # ============================================================
 
@@ -178,18 +222,14 @@ def extract_embeddings(
     device,
 ):
     """
-    Extract one 768-dimensional embedding per article.
-
-    We use the first token representation from DistilBERT,
-    corresponding to the leading special token representation.
+    Extract one 768-dimensional mean-pooled embedding per article.
 
     Returns:
         embeddings:
-            numpy array with shape (N, 768)
+            Shape (N, 768)
 
         ids:
-            numpy array containing article IDs in exactly the
-            same order as the embeddings.
+            Article IDs in exactly the same order.
     """
 
     article_dataset = ArticleTextDataset(
@@ -230,13 +270,13 @@ def extract_embeddings(
                 attention_mask=attention_mask,
             )
 
-            # First-token representation.
-            batch_embeddings = (
-                outputs.last_hidden_state[
-                    :,
-                    0,
-                    :
-                ]
+            # ------------------------------------------------
+            # Masked mean pooling
+            # ------------------------------------------------
+
+            batch_embeddings = mean_pooling(
+                outputs.last_hidden_state,
+                attention_mask,
             )
 
             batch_embeddings = (
@@ -255,8 +295,7 @@ def extract_embeddings(
             )
 
             processed = min(
-                batch_number
-                * BERT_BATCH_SIZE,
+                batch_number * BERT_BATCH_SIZE,
                 total,
             )
 
@@ -287,18 +326,12 @@ def validate_embeddings(
     ids,
     dataset,
 ):
-    """
-    Validate embedding dimensions and article-ID alignment.
-    """
-
-    # --------------------------------------------------------
-    # Shape
-    # --------------------------------------------------------
+    """Validate embedding shape, values, and ID alignment."""
 
     if embeddings.ndim != 2:
         raise ValueError(
             f"Expected 2D embeddings, "
-            f"got shape {embeddings.shape}"
+            f"got {embeddings.shape}"
         )
 
     if embeddings.shape[1] != BERT_EMBEDDING_DIM:
@@ -308,25 +341,17 @@ def validate_embeddings(
             f"got {embeddings.shape[1]}"
         )
 
-    # --------------------------------------------------------
-    # Number of rows
-    # --------------------------------------------------------
-
     if len(embeddings) != len(dataset):
         raise ValueError(
-            "Number of embeddings does not match "
-            "number of dataset articles."
+            "Embedding count does not match "
+            "dataset article count."
         )
 
     if len(ids) != len(dataset):
         raise ValueError(
-            "Number of embedding IDs does not match "
-            "number of dataset articles."
+            "Embedding ID count does not match "
+            "dataset article count."
         )
-
-    # --------------------------------------------------------
-    # IDs
-    # --------------------------------------------------------
 
     dataset_ids = dataset[
         "id"
@@ -338,7 +363,7 @@ def validate_embeddings(
     ):
         raise ValueError(
             "Embedding IDs are not aligned with "
-            "the canonical dataset order."
+            "the canonical dataset ordering."
         )
 
     if not np.isfinite(
@@ -357,9 +382,7 @@ def save_embeddings(
     embeddings,
     ids,
 ):
-    """
-    Save embeddings and their article IDs.
-    """
+    """Save embeddings and article-ID metadata."""
 
     BERT_EMBEDDINGS_PATH.parent.mkdir(
         parents=True,
@@ -388,7 +411,7 @@ def save_embeddings(
 def main():
 
     print("=" * 80)
-    print("FROZEN DISTILBERT EMBEDDING EXTRACTION")
+    print("FROZEN DISTILBERT EMBEDDINGS — LDA ONLY")
     print("=" * 80)
 
     device = get_device()
@@ -398,7 +421,7 @@ def main():
     )
 
     # --------------------------------------------------------
-    # Load canonical dataset
+    # Load data
     # --------------------------------------------------------
 
     dataset = load_feature_prediction_dataset()
@@ -409,7 +432,7 @@ def main():
     )
 
     # --------------------------------------------------------
-    # Load frozen model
+    # Load frozen BERT
     # --------------------------------------------------------
 
     tokenizer, model = (
@@ -419,7 +442,7 @@ def main():
     )
 
     # --------------------------------------------------------
-    # Extract
+    # Extract mean-pooled embeddings
     # --------------------------------------------------------
 
     embeddings, ids = extract_embeddings(
@@ -463,11 +486,6 @@ def main():
     )
 
     print(
-        f"Number of articles: "
-        f"{len(embeddings):,}"
-    )
-
-    print(
         f"Embedding dimension: "
         f"{embeddings.shape[1]}"
     )
@@ -483,7 +501,7 @@ def main():
     )
 
     print(
-        "\nFrozen BERT embedding check: PASSED"
+        "\nMean-pooling embedding check: PASSED"
     )
 
 
