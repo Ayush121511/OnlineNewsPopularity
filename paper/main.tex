@@ -52,7 +52,7 @@ The Online News Popularity dataset~\cite{fernandes2015proactive} is a canonical 
 We address this with a controlled $2\times2$ study:
 
 \begin{itemize}
-    \item \textbf{Two domains}: news articles (structural/meta features + sentiment/topic-model features from the UCI Online News Popularity release, re-scraped article text) and Reddit posts (structural/meta features, self-post text and titles, drawn from a balanced 16-subreddit sample).
+    \item \textbf{Two domains, chosen as opposite ends of the same register spectrum}: professionally-edited news articles written in conventional newswriting style (structural/meta features + sentiment/topic-model features from the UCI Online News Popularity release, re-scraped article text) versus informal, user-authored Reddit posts (structural/meta features, self-post text and titles, drawn from a balanced 16-subreddit sample).
     \item \textbf{Two tasks per domain}: \emph{popularity} classification (quartile bins of shares/score) and \emph{topic} classification (news channel / subreddit identity) --- the latter serving as a positive control task where lexical content is definitionally part of the label.
     \item \textbf{Two feature configurations}: tabular-only, and tabular + frozen DistilBERT embedding (masked mean pooling over title+text), following the multimodal-tabular-plus-text precedent of AutoGluon~\cite{shi2021multimodal}.
 \end{itemize}
@@ -80,6 +80,8 @@ We emphasize what this paper is \emph{not} claiming: it is not a new architectur
 
 \section{Data and Task Design}
 \label{sec:data}
+
+The two domains are a deliberate choice, not a convenience sample. News articles and Reddit posts sit at opposite ends of the same register spectrum: news text is edited, professionally authored prose that follows the conventions of traditional newswriting (headline, lede, structured body, house style), while Reddit text is unedited, informal, often colloquial writing by ordinary users, with slang, abbreviations, and inconsistent grammar. If a frozen, off-the-shelf language model's contribution depended mainly on how well its pretraining distribution matches the register of the target text, we would expect it to behave similarly within each domain regardless of task. Instead (\S\ref{sec:results}), BERT's usefulness varies far more \emph{within} a domain, across the popularity/topic task split, than it does \emph{between} the two domains --- evidence that what determines BERT's contribution is the semantic structure of the label, not surface writing register.
 
 \begin{table}[t]
 \centering
@@ -182,6 +184,7 @@ For every (domain, task, configuration) cell we compute:
 All splits are stratified 80/20 with a fixed seed (42) shared across every script in the pipeline. For Reddit, tree depth is capped at 18 ($\max\_depth{=}18$); this was necessary purely for computational tractability of exact TreeExplainer on $15{,}998$ rows $\times$ up to 811 features and was verified not to change any group ranking relative to an uncapped run on the subset where the uncapped run completed. News-domain trees are unconstrained (dataset is small enough, $3{,}437$ rows, for exact TreeExplainer to be fast regardless of depth). We note that Random Forest's per-split feature subsampling makes final accuracy mildly sensitive ($\lesssim 2$ points) to input column ordering even under a fixed seed; this is discussed as a limitation in \S\ref{sec:threats} and does not affect any group-importance ranking, which is reproduced identically by both SHAP and permutation importance regardless of column order.
 
 \section{Results}
+\label{sec:results}
 
 \subsection{Headline accuracy and significance}
 
