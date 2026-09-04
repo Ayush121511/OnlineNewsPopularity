@@ -195,11 +195,23 @@ for _, shap_f, perm_f in configs:
 fig, ax = plt.subplots(figsize=(3.4, 2.9))
 xw = np.arange(len(configs))
 width = 0.32
-ax.bar(xw - width / 2, shap_bert_pct, width, label="SHAP (per-feature %)", color="#4C72B0", zorder=3)
-ax.bar(xw + width / 2, perm_bert_pct, width, label="Permutation (% of drop)", color="#DD8452", zorder=3)
+bars_shap = ax.bar(xw - width / 2, shap_bert_pct, width, label="SHAP (per-feature %)", color="#4C72B0", zorder=3)
+bars_perm = ax.bar(xw + width / 2, perm_bert_pct, width, label="Permutation (% of drop)", color="#DD8452", zorder=3)
+
+# Value labels on every bar -- some SHAP bars (e.g. News Topic, 1.2%) are
+# too short to read against a 68% neighbor on a linear axis, so annotate
+# the exact number directly rather than relying on bar height alone.
+for bars in (bars_shap, bars_perm):
+    for rect in bars:
+        h = rect.get_height()
+        ax.annotate(f"{h:.1f}%", xy=(rect.get_x() + rect.get_width() / 2, h),
+                    xytext=(0, 2), textcoords="offset points",
+                    ha="center", va="bottom", fontsize=6.3)
+
 ax.set_xticks(xw)
 ax.set_xticklabels([c[0] for c in configs], fontsize=7.2)
 ax.set_ylabel("BERT group importance share")
+ax.set_ylim(0, 78)
 ax.yaxis.set_major_formatter(mticker.PercentFormatter(100))
 ax.legend(loc="upper left", framealpha=0.9, fontsize=6.8)
 ax.set_title("BERT's importance share: SHAP vs.\npermutation importance agree", fontsize=8.3)
