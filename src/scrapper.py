@@ -226,15 +226,15 @@ def get_wayback_url(
 
     cdx_url = "https://web.archive.org/cdx/search/cdx"
 
-    params = {
-        "url": url,
-        "output": "json",
-        "filter": "statuscode:200",
-        "filter": "mimetype:text/html",
-        "collapse": "digest",
-        "limit": 1,
-        "fl": "timestamp,original,statuscode",
-    }
+    params = [
+        ("url", url),
+        ("output", "json"),
+        ("filter", "statuscode:200"),
+        ("filter", "mimetype:text/html"),
+        ("collapse", "digest"),
+        ("limit", 1),
+        ("fl", "timestamp,original,statuscode"),
+    ]
 
     headers = {
         "User-Agent": USER_AGENT,
