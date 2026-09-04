@@ -13,6 +13,7 @@
 \usetikzlibrary{positioning,arrows.meta,fit,backgrounds,calc}
 \usepackage{siunitx}
 \sisetup{detect-all}
+\usepackage[colorlinks=true, citecolor=blue, linkcolor=blue, urlcolor=blue, breaklinks=true]{hyperref}
 
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
@@ -53,7 +54,7 @@ We address this with a controlled $2\times2$ study:
 \begin{itemize}
     \item \textbf{Two domains}: news articles (structural/meta features + sentiment/topic-model features from the UCI Online News Popularity release, re-scraped article text) and Reddit posts (structural/meta features, self-post text and titles, drawn from a balanced 16-subreddit sample).
     \item \textbf{Two tasks per domain}: \emph{popularity} classification (quartile bins of shares/score) and \emph{topic} classification (news channel / subreddit identity) --- the latter serving as a positive control task where lexical content is definitionally part of the label.
-    \item \textbf{Two feature configurations}: tabular-only, and tabular + frozen DistilBERT embedding (masked mean pooling over title+text, 768-d, never fine-tuned), following the multimodal-tabular-plus-text precedent of AutoGluon~\cite{shi2021multimodal}.
+    \item \textbf{Two feature configurations}: tabular-only, and tabular + frozen DistilBERT embedding (masked mean pooling over title+text), following the multimodal-tabular-plus-text precedent of AutoGluon~\cite{shi2021multimodal}.
 \end{itemize}
 
 For every one of these eight (domain $\times$ task $\times$ configuration) combinations we report: (i) SHAP~\cite{lundberg2017unified} feature-group importance, both as raw group sums and per-feature-normalized values (raw sums are structurally biased toward the 768-dimensional BERT block); (ii) an independent group-level permutation-importance~\cite{breiman2001permutation} check, to rule out that any finding is an artifact of TreeExplainer specifically; and (iii) a paired bootstrap significance test on the accuracy delta between tabular-only and tabular+BERT models, so that ``BERT helped/hurt'' claims are backed by confidence intervals rather than point estimates on a single held-out split.
