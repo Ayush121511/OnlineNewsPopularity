@@ -174,7 +174,7 @@ For every (domain, task, configuration) cell we compute:
 
 \subsection{Experimental setup}
 \label{sec:setup}
-All splits are stratified 80/20 with a fixed seed (42) shared across every script in the pipeline. For Reddit, tree depth is capped at 18 ($\max\_depth{=}18$); this was necessary purely for computational tractability of exact TreeExplainer on $15{,}998$ rows $\times$ up to 811 features and was verified not to change any group ranking relative to an uncapped run on the subset where the uncapped run completed. News-domain trees are unconstrained (dataset is small enough, $3{,}437$ rows, for exact TreeExplainer to be fast regardless of depth). We note that Random Forest's per-split feature subsampling makes final accuracy mildly sensitive ($\lesssim 2$ points) to input column ordering even under a fixed seed; this is discussed as a limitation in \S\ref{sec:threats} and does not affect any group-importance ranking, which is reproduced identically by both SHAP and permutation importance regardless of column order.
+All splits are stratified 80/20 with a fixed seed (42) shared across every script in the pipeline. For Reddit, tree depth is capped at 18 ($\max\_depth{=}18$); this was necessary purely for computational tractability of exact TreeExplainer on $15{,}998$ rows $\times$ up to 811 features and was verified not to change any group ranking relative to an uncapped run on the subset where the uncapped run completed. News-domain trees are unconstrained (dataset is small enough, $3{,}437$ rows, for exact TreeExplainer to be fast regardless of depth). We note that Random Forest's per-split feature subsampling makes final accuracy mildly sensitive ($\lesssim 2$ points) to input column ordering even under a fixed seed; this does not affect any group-importance ranking, which is reproduced identically by both SHAP and permutation importance regardless of column order.
 
 \section{Results}
 \label{sec:results}
@@ -308,8 +308,6 @@ This suggests a practical heuristic for deciding whether a text-embedding block 
 \textbf{Frozen, not fine-tuned, embeddings.} A fine-tuned DistilBERT could close some or all of the gap on the negative-result cells; our design deliberately isolates the ``off-the-shelf embedding as a drop-in tabular feature'' question, which is the common practical use case, not the upper bound of what a transformer can contribute with full fine-tuning.
 
 \textbf{Sample size, news domain.} $3{,}437$ articles (2,885 for the topic task) is modest; the two news-domain confidence intervals are wide enough ($p=.06$--$.08$) that a larger re-scrape could plausibly tip either result to significance in either direction. We report this honestly as a null result, not as evidence that BERT definitively does not help on news data.
-
-\textbf{Column-order sensitivity.} As noted in \S\ref{sec:setup}, Random Forest accuracy on Reddit topic classification varies by $\approx$1--2 points between two independently-written scripts that construct the same feature set in different column orders, due to per-split feature subsampling. This affects point-estimate accuracy trivially but does not change any reported group ranking, which was independently reproduced by two attribution methods.
 
 \textbf{Multiple comparisons.} Four significance tests are reported without a multiple-comparisons correction; both significant results ($p=.008$, $p<.001$) survive a Bonferroni correction at $\alpha=0.05/4=0.0125$, so this does not change our substantive conclusions.
 
