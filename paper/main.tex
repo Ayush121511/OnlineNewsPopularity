@@ -135,7 +135,7 @@ Fig.~\ref{fig:pipeline} shows the shared pipeline applied independently to each 
 \node[ebox, right=of text] (bert) {Frozen DistilBERT\\masked mean pooling};
 \node[ebox, right=of bert] (emb) {768-d embedding};
 
-\node[box, right=32mm of struct, yshift=-9mm] (concat) {Concatenate\\(tabular-only \emph{or} tabular+BERT)};
+\node[box, right=14mm of emb, yshift=9mm] (concat) {Concatenate\\(tabular-only \emph{or} tabular+BERT)};
 
 \node[box, right=of concat] (rf) {Random Forest\\($T{=}200$ trees)};
 
@@ -147,8 +147,8 @@ Fig.~\ref{fig:pipeline} shows the shared pipeline applied independently to each 
 \draw[arr] (raw) -- (text);
 \draw[arr] (text) -- (bert);
 \draw[arr] (bert) -- (emb);
-\draw[arr] (struct.east) -- ++(10mm,0) |- (concat.north);
-\draw[arr] (emb.east) -- ++(4mm,0) |- (concat.south);
+\draw[arr] (struct.east) -- ++(6mm,0) |- ($(concat.west)+(0,2mm)$);
+\draw[arr] (emb.east) -- ++(6mm,0) |- ($(concat.west)+(0,-2mm)$);
 \draw[arr] (concat) -- (rf);
 \draw[arr] (rf) -- (shap);
 \draw[arr] (rf) -- (perm);
