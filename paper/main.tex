@@ -10,7 +10,7 @@
 \usepackage{booktabs}
 \usepackage{multirow}
 \usepackage{tikz}
-\usetikzlibrary{positioning,arrows.meta,fit,backgrounds}
+\usetikzlibrary{positioning,arrows.meta,fit,backgrounds,calc}
 \usepackage{siunitx}
 \sisetup{detect-all}
 
@@ -151,8 +151,8 @@ Fig.~\ref{fig:pipeline} shows the shared pipeline applied independently to each 
 \draw[arr] (raw) -- (text);
 \draw[arr] (text) -- (bert);
 \draw[arr] (bert) -- (emb);
-\draw[arr] (struct.east) -- ++(6mm,0) |- (concat.west);
-\draw[arr] (emb.east) -- ++(6mm,0) |- (concat.west);
+\draw[arr] (struct.east) -- ++(10mm,0) |- (concat.north);
+\draw[arr] (emb.east) -- ++(4mm,0) |- (concat.south);
 \draw[arr] (concat) -- (rf);
 \draw[arr] (rf) -- (shap);
 \draw[arr] (rf) -- (perm);
