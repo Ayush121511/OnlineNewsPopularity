@@ -71,18 +71,18 @@ for xi, ch in zip(x, chances):
 
 for xi, ta, ba, sig in zip(x, tab_accs, bert_accs, sig_flags):
     top = max(ta, ba) + 0.025
-    marker = "*" if sig else "n.s."
+    label = "BERT effect:\nsignificant" if sig else "BERT effect:\nnot significant"
     color = SIG_COLOR if sig else NS_COLOR
-    ax.text(xi, top, marker, ha="center", va="bottom", fontsize=10 if sig else 7.5, color=color, fontweight="bold")
+    ax.text(xi, top, label, ha="center", va="bottom", fontsize=6.6, color=color, fontweight="bold" if sig else "normal")
 
 ax.set_xticks(x)
 ax.set_xticklabels([c[0] for c in cells])
 ax.set_ylabel("Test accuracy")
-ax.set_ylim(0, 1.0)
+ax.set_ylim(0, 1.13)
 ax.yaxis.set_major_formatter(mticker.PercentFormatter(1.0))
 ax.legend(loc="upper left", ncol=1, framealpha=0.9)
 ax.set_title("Tabular-only vs. tabular+BERT accuracy across the $2\\times2$ study grid\n"
-              "(dashed line = chance level; * = significant at $\\alpha=0.05$, paired bootstrap, $n{=}2000$)",
+              "(dashed line = chance level; significance = paired bootstrap test, $\\alpha=0.05$, $n{=}2000$ resamples)",
               fontsize=8.3)
 fig.tight_layout()
 fig.savefig(FIG_DIR / "fig_accuracy_summary.pdf")
