@@ -189,16 +189,19 @@ Table~\ref{tab:mainresults} and Fig.~\ref{fig:accsummary}--\ref{fig:ciforest} gi
 \centering
 \caption{Main results: tabular-only vs.\ tabular+BERT accuracy, with paired-bootstrap 95\% CI on the delta ($n{=}2000$ resamples)}
 \label{tab:mainresults}
-\begin{tabular}{@{}llrrrc@{}}
+\footnotesize
+\begin{tabular}{@{}llrrr@{}}
 \toprule
-\textbf{Domain} & \textbf{Task} & \textbf{Tab.} & \textbf{+BERT} & \textbf{$\Delta$ [95\% CI]} & \textbf{Sig.} \\
+\textbf{Domain} & \textbf{Task} & \textbf{Tab.} & \textbf{+BERT} & \textbf{$\Delta$ [95\% CI]} \\
 \midrule
-News   & Popularity & 36.3\% & 32.1\% & $-4.2$ [$-8.6$, $+0.3$] & n.s. ($p{=}.063$)\\
-News   & Topic      & 79.9\% & 77.8\% & $-2.1$ [$-4.3$, $+0.2$] & n.s. ($p{=}.081$)\\
-Reddit & Popularity & 33.6\% & 30.8\% & $-2.9$ [$-5.1$, $-0.7$] & \textbf{sig.} ($p{=}.008$)\\
-Reddit & Topic      & 64.7\% & 82.5\% & $\mathbf{+17.8}$ [$+16.0$, $+19.6$] & \textbf{sig.} ($p{<}.001$)\\
+News   & Popularity & 36.3\% & 32.1\% & $-4.2$ [$-8.6$, $+0.3$] \\
+News   & Topic      & 79.9\% & 77.8\% & $-2.1$ [$-4.3$, $+0.2$] \\
+Reddit & Popularity & 33.6\% & 30.8\% & $\mathbf{-2.9}$ [$-5.1$, $-0.7$]\textsuperscript{*} \\
+Reddit & Topic      & 64.7\% & 82.5\% & $\mathbf{+17.8}$ [$+16.0$, $+19.6$]\textsuperscript{*} \\
 \bottomrule
 \end{tabular}
+\\[3pt]
+\raggedright\footnotesize\textsuperscript{*}Significant at $\alpha{=}0.05$ (two-sided paired bootstrap; both survive Bonferroni correction, $\alpha/4{=}.0125$). $p$-values: news popularity $p{=}.063$; news topic $p{=}.081$; Reddit popularity $p{=}.008$; Reddit topic $p{<}.001$.
 \end{table}
 
 \begin{figure}[t]
@@ -229,9 +232,10 @@ Fig.~\ref{fig:shapnews} and Fig.~\ref{fig:shapreddit} show per-feature-normalize
 \centering
 \caption{Raw vs.\ per-feature-normalized SHAP share for the BERT group, tabular+BERT models (illustrates the dimensionality artifact)}
 \label{tab:rawvsnorm}
+\footnotesize
 \begin{tabular}{@{}llrr@{}}
 \toprule
-\textbf{Domain} & \textbf{Task} & \textbf{BERT, raw \% of SHAP} & \textbf{BERT, per-feature \%} \\
+\textbf{Domain} & \textbf{Task} & \textbf{BERT, raw \% SHAP} & \textbf{BERT, per-feat.\ \%} \\
 \midrule
 News   & Popularity & 83.1\% & 6.6\% \\
 News   & Topic      & 57.6\% & 1.2\% \\
