@@ -325,7 +325,7 @@ This suggests a practical heuristic for deciding whether a text-embedding block 
 We ran a controlled, statistically-checked test of whether a frozen BERT embedding adds predictive signal beyond structured/meta features, across two domains and two tasks, using two independent feature-attribution methods and a paired-bootstrap significance test rather than point-estimate accuracy alone. The answer is not uniform: BERT provides a large, significant gain exactly where the label is intrinsically lexical and has no engineered text-derived proxy in the feature set (Reddit subreddit classification, $+17.8$ points, $p<0.001$), and is neutral-to-harmful everywhere else in the grid, including a significant negative effect on Reddit popularity despite a $4.6\times$ larger training set than the news domain. The dimensionality cost of a text embedding is worth paying under one specific, identifiable condition: the label is intrinsically topical or lexical, and no engineered text-derived feature already proxies for it. Outside that condition, the four cells in this study show the embedding contributing nothing or actively hurting accuracy, regardless of domain or training-set size.
 
 \section*{Acknowledgment}
-The author thanks the Yardi School of Artificial Intelligence, IIT Delhi, for the computing and academic environment supporting this work.
+The author thanks the Yardi School of Artificial Intelligence, IIT Delhi, for the computing and academic environment supporting this work. Generative AI tools were used to assist with the formulation and language refinement of portions of this manuscript.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
