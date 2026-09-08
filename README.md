@@ -56,11 +56,6 @@ paper/
   references.bib              Bibliography
 ```
 
-Other directories (`src/traditional_ml/`, `src/combined_model/`,
-`src/stacking_model/`, `src/lda_predictor.py`, `src/topic_detection.py`)
-hold earlier or exploratory experiments outside the paper's four-cell
-grid; they are not part of the reported results.
-
 ## Reproducing the results
 
 ```bash
