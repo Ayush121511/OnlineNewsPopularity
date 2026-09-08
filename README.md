@@ -8,7 +8,7 @@ importance, permutation-importance as an independent cross-check, and a
 paired-bootstrap significance test on the tabular-only vs. tabular+BERT
 accuracy delta.
 
-The full paper (with figures, tables, and results) is in `paper/main.pdf`.
+The full paper (with figures, tables, and results) is in `paper/main_blind.pdf`.
 
 ## Result summary
 
@@ -48,8 +48,7 @@ outputs/
                              and tabular+BERT
   bert_embeddings.npy        Precomputed embeddings
 paper/
-  main.tex, main.pdf         Camera-ready manuscript (identified)
-  main_blind.tex, main_blind.pdf   Double-blind copy for review
+  main_blind.tex, main_blind.pdf   Manuscript (double-blind review copy)
   generate_figures.py        Regenerates all paper figures from
                              outputs/feature_importance/
   figures/                    Generated figures (PDF)
@@ -84,7 +83,7 @@ python paper/generate_figures.py
 ```
 
 All splits use a fixed seed (42), stratified 80/20, shared across every
-script. See `paper/main.pdf` Section IV ("Method") for the full protocol.
+script. See `paper/main_blind.pdf` Section IV ("Method") for the full protocol.
 
 ## Data
 
