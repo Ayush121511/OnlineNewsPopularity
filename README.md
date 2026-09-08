@@ -86,8 +86,13 @@ script. See `paper/main.pdf` Section IV ("Method") for the full protocol.
 - **News**: [UCI Online News Popularity](https://archive.ics.uci.edu/dataset/332/online+news+popularity)
   (Fernandes et al., 2015), plus re-scraped article text for a 3,437-article
   subset (`data/scraped_articles.csv`, `data/retrieval_metadata.csv`).
-- **Reddit**: a balanced 16-subreddit sample of ~16,000 posts
-  (`data/reddit_popularity_dataset.csv`).
+- **Reddit**: a balanced 16-subreddit sample of ~16,000 posts, sampled
+  down from a raw pull of ~115,000 submissions
+  (`data/reddit_popularity_dataset.csv`) with standard submission-level
+  fields (title, selftext, score, comment count, timing, NSFW flag,
+  thumbnail/domain indicators). The original acquisition source is not
+  preserved in this repository; the collection script that built this
+  file is no longer available.
 
 ## Citation
 
