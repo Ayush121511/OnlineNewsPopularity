@@ -37,7 +37,6 @@ src/
   data_loader_news.py       News data loading / feature grouping
   bert_embeddings.py        Frozen DistilBERT embedding extraction
                              (masked mean pooling)
-  bert_popularity/          Popularity-task pipeline (tabular + BERT)
   feature_importance/       SHAP, permutation importance, and
                              paired-bootstrap significance scripts —
                              the core pipeline behind the paper's results
