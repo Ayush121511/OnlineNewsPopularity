@@ -11,8 +11,6 @@
 \usepackage{multirow}
 \usepackage{tikz}
 \usetikzlibrary{positioning,arrows.meta,fit,backgrounds,calc}
-\usepackage{siunitx}
-\sisetup{detect-all}
 \usepackage[colorlinks=true, citecolor=blue, linkcolor=blue, urlcolor=blue, breaklinks=true]{hyperref}
 
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
@@ -36,7 +34,7 @@ ayush.srivastava12511@gmail.com}
 \maketitle
 
 \begin{abstract}
-Adding a pretrained text embedding to a tabular model is a default move in applied machine learning, but it is rarely checked against the null hypothesis that the embedding adds nothing beyond what structured/meta features already capture. We run that check systematically. Using frozen DistilBERT embeddings (masked mean pooling) concatenated with domain-specific structured features, we train Random Forest classifiers across a $2\times2$ grid: two prediction tasks (popularity and topic/category classification) $\times$ two domains (news articles and Reddit posts). For every one of the four cells we report SHAP feature-group importance, group-level permutation importance as an independent robustness check, and paired-bootstrap 95\% confidence intervals ($n{=}2000$ resamples) on the tabular-vs.\ tabular+BERT accuracy delta. The two methods never disagree on group ranking. BERT helps substantially, and significantly so, on exactly one of the four cells: Reddit topic (subreddit) classification, $+17.8$ points ($p<0.001$). It significantly \emph{hurts} Reddit popularity, $-2.9$ points ($p=0.008$), and has no significant effect in either direction on the two news-domain tasks ($p=0.06$--$0.08$). Structural/meta features dominate per-feature importance in three of the four cells even when BERT is present. We argue this maps a genuine boundary condition for when frozen text embeddings are worth their dimensionality: when the label is intrinsically lexical/topical, not when it is behavioral or already well proxied by hand-engineered features.
+Adding a pretrained text embedding to a tabular model is a default move in applied machine learning, but it is rarely checked against the null hypothesis that the embedding adds nothing beyond what structured/meta features already capture. We run that check systematically. Using frozen DistilBERT embeddings (masked mean pooling) concatenated with domain-specific structured features, we train Random Forest classifiers across a two-by-two grid: two prediction tasks (popularity and topic/category classification) by two domains (news articles and Reddit posts). For every one of the four cells we report SHAP feature-group importance, group-level permutation importance as an independent robustness check, and paired-bootstrap 95\% confidence intervals (2,000 resamples) on the tabular-vs.\ tabular+BERT accuracy delta. The two methods never disagree on group ranking. BERT helps substantially, and significantly so, on exactly one of the four cells: Reddit topic (subreddit) classification, up 17.8 points (p less than 0.001). It significantly \emph{hurts} Reddit popularity, down 2.9 points (p equals 0.008), and has no significant effect in either direction on the two news-domain tasks (p between 0.06 and 0.08). Structural/meta features dominate per-feature importance in three of the four cells even when BERT is present. We argue this maps a genuine boundary condition for when frozen text embeddings are worth their dimensionality: when the label is intrinsically lexical/topical, not when it is behavioral or already well proxied by hand-engineered features.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -255,11 +253,12 @@ Reddit & Topic      & 72.5\% & 1.6\%\textsuperscript{a} \\
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figures/fig_shap_reddit.pdf}
-\caption{Reddit domain: per-feature-normalized SHAP group importance, tabular+BERT model. Structure dominates popularity; for topic (subreddit), BERT and structure are the two largest groups.}
+\caption{Reddit domain: per-feature-normalized SHAP group importance, tabular+BERT model. Structure dominates both tasks; for topic (subreddit), BERT ranks second-to-last on this metric (1.6\%) despite leading on permutation importance (Table~\ref{tab:permcheck}) and raw SHAP sum, illustrating the metric divergence discussed in \S\ref{sec:cross-method}.}
 \label{fig:shapreddit}
 \end{figure}
 
 \subsection{Cross-method robustness: SHAP vs.\ permutation importance}
+\label{sec:cross-method}
 
 Table~\ref{tab:permcheck} and Fig.~\ref{fig:agreement} compare BERT's importance share under SHAP against its share of accuracy drop under group permutation, computed independently on the same fitted models. The two methods never flip the group ranking in any of the four cells: BERT ranks last or near-last on both metrics in three cells, and first on both metrics (raw SHAP share and permutation-drop share) in Reddit topic classification. This agreement is evidence that our central finding is not an artifact of TreeExplainer specifically.
 
