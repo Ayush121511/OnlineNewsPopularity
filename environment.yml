@@ -1,20 +1,21 @@
 name: online_news_popularity
 channels:
-  - pytorch
   - conda-forge
   - defaults
 dependencies:
-  - python=3.10
-  - pandas
-  - numpy
-  - scikit-learn
-  - beautifulsoup4
-  - requests
+  - python=3.10.21
+  - pandas=2.3.3
+  - numpy=2.2.6
+  - scikit-learn=1.7.2
+  - beautifulsoup4=4.15.0
+  - requests=2.34.2
   - jupyterlab
-  - pytorch
   - pip
   - pip:
-      - transformers
-      - datasets
-      - newspaper3k
+      - torch==2.14.0
+      - transformers==5.16.1
+      - shap==0.49.1
+      - datasets==5.0.1
+      - newspaper3k==0.2.8
+      - lxml==6.1.2
       - lxml_html_clean
