@@ -73,6 +73,7 @@ python src/feature_importance/robustness_news.py        # permutation, news
 python src/feature_importance/robustness_reddit.py      # permutation, reddit
 python src/feature_importance/sig_news.py                # bootstrap CI, news
 python src/feature_importance/sig_reddit.py               # bootstrap CI, reddit
+python src/feature_importance/depth_cap_check.py          # max_depth cap vs uncapped, reddit
 
 # Figures
 python paper/generate_figures.py

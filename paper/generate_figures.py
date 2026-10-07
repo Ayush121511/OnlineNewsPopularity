@@ -21,12 +21,12 @@ FIG_DIR.mkdir(exist_ok=True)
 
 plt.rcParams.update({
     "font.family": "serif",
-    "font.size": 9,
-    "axes.labelsize": 9,
-    "axes.titlesize": 9.5,
-    "legend.fontsize": 7.5,
-    "xtick.labelsize": 8,
-    "ytick.labelsize": 8,
+    "font.size": 8,
+    "axes.labelsize": 8,
+    "axes.titlesize": 8,
+    "legend.fontsize": 7,
+    "xtick.labelsize": 7.5,
+    "ytick.labelsize": 7.5,
     "axes.spines.top": False,
     "axes.spines.right": False,
     "axes.grid": True,
@@ -54,7 +54,7 @@ cells = [
     ("Reddit\nTopic", sig_reddit.iloc[1], 1 / 16, "16-way"),
 ]
 
-fig, ax = plt.subplots(figsize=(7.1, 2.7))
+fig, ax = plt.subplots(figsize=(3.5, 2.5))
 x = np.arange(len(cells))
 width = 0.32
 
@@ -71,19 +71,16 @@ for xi, ch in zip(x, chances):
 
 for xi, ta, ba, sig in zip(x, tab_accs, bert_accs, sig_flags):
     top = max(ta, ba) + 0.025
-    label = "BERT effect:\nsignificant" if sig else "BERT effect:\nnot significant"
+    label = "significant" if sig else "n.s."
     color = SIG_COLOR if sig else NS_COLOR
-    ax.text(xi, top, label, ha="center", va="bottom", fontsize=6.6, color=color, fontweight="bold" if sig else "normal")
+    ax.text(xi, top, label, ha="center", va="bottom", fontsize=7, color=color, fontweight="bold" if sig else "normal")
 
 ax.set_xticks(x)
 ax.set_xticklabels([c[0] for c in cells])
 ax.set_ylabel("Test accuracy")
-ax.set_ylim(0, 1.13)
+ax.set_ylim(0, 1.05)
 ax.yaxis.set_major_formatter(mticker.PercentFormatter(1.0))
-ax.legend(loc="upper left", ncol=1, framealpha=0.9)
-ax.set_title("Tabular-only vs. tabular+BERT accuracy across the $2\\times2$ study grid\n"
-              "(dashed line = chance level; significance = paired bootstrap test, $\\alpha=0.05$, $n{=}2000$ resamples)",
-              fontsize=8.3)
+ax.legend(loc="upper left", ncol=2, framealpha=0.9)
 fig.tight_layout()
 fig.savefig(FIG_DIR / "fig_accuracy_summary.pdf")
 plt.close(fig)
@@ -99,7 +96,7 @@ rows = [
     ("Reddit – Topic", sig_reddit.iloc[1]),
 ]
 
-fig, ax = plt.subplots(figsize=(5.2, 2.6))
+fig, ax = plt.subplots(figsize=(3.3, 1.9))
 ypos = np.arange(len(rows))[::-1]
 for y, (name, r) in zip(ypos, rows):
     lo, hi, mid = r["ci_lo_95"], r["ci_hi_95"], r["observed_delta"]
@@ -110,11 +107,10 @@ for y, (name, r) in zip(ypos, rows):
 ax.axvline(0, color="black", linewidth=0.9, linestyle="--", zorder=1)
 ax.set_yticks(ypos)
 ax.set_yticklabels([r[0] for r in rows])
-ax.set_xlabel(r"Accuracy delta (tabular+BERT $-$ tabular), 95% bootstrap CI")
+ax.set_xlabel(r"$\Delta$ accuracy (tabular+BERT $-$ tabular)")
 ax.xaxis.set_major_formatter(mticker.PercentFormatter(1.0))
-ax.set_title("BERT effect on accuracy: paired bootstrap 95% CI ($n{=}2000$ resamples)", fontsize=8.3)
 fig.tight_layout()
-fig.savefig(FIG_DIR / "fig_ci_forest.pdf")
+fig.savefig(FIG_DIR / "fig_ci_forest.pdf", bbox_inches="tight")
 plt.close(fig)
 
 # ============================================================
@@ -131,7 +127,7 @@ GROUP_COLORS = {
 
 
 def plot_shap_domain(domain_label, file_prefix, panels, outfile):
-    fig, axes = plt.subplots(1, len(panels), figsize=(7.1, 2.9), sharey=False)
+    fig, axes = plt.subplots(1, len(panels), figsize=(3.5, 1.9), sharey=False)
     for ax, (title, tab_csv, bert_csv) in zip(axes, panels):
         tab = pd.read_csv(OUT / tab_csv).sort_values("avg_mean_abs_shap_per_feature", ascending=True)
         bert = pd.read_csv(OUT / bert_csv).sort_values("avg_mean_abs_shap_per_feature", ascending=True)
@@ -143,11 +139,10 @@ def plot_shap_domain(domain_label, file_prefix, panels, outfile):
         colors = [GROUP_COLORS.get(g, "#333333") for g in groups_order]
         ax.barh(y, bert_vals, color=colors, zorder=3)
         ax.set_yticks(y)
-        ax.set_yticklabels(groups_order, fontsize=7.6)
-        ax.set_xlabel("% of per-feature SHAP\n(tabular+BERT model)", fontsize=7.6)
-        ax.set_title(title, fontsize=8.5)
-        ax.xaxis.set_major_formatter(mticker.PercentFormatter(100))
-    fig.suptitle(f"{domain_label}: per-feature-normalized SHAP group importance (with BERT)", fontsize=8.8, y=1.03)
+        ax.set_yticklabels(groups_order, fontsize=7.5)
+        ax.set_title(title, fontsize=8)
+        ax.xaxis.set_major_formatter(mticker.PercentFormatter(100, decimals=0))
+    fig.supxlabel("Share of per-feature SHAP (tabular+BERT model)", fontsize=7.5)
     fig.tight_layout()
     fig.savefig(outfile, bbox_inches="tight")
     plt.close(fig)
@@ -192,7 +187,7 @@ for _, shap_f, perm_f in configs:
     perm_row = perm_df.set_index("group").loc["bert"]
     perm_bert_pct.append(max(perm_row["pct_of_total_drop"], 0.0))
 
-fig, ax = plt.subplots(figsize=(3.4, 2.9))
+fig, ax = plt.subplots(figsize=(3.4, 2.4))
 xw = np.arange(len(configs))
 width = 0.32
 bars_shap = ax.bar(xw - width / 2, shap_bert_pct, width, label="SHAP (per-feature %)", color="#4C72B0", zorder=3)
@@ -206,15 +201,14 @@ for bars in (bars_shap, bars_perm):
         h = rect.get_height()
         ax.annotate(f"{h:.1f}%", xy=(rect.get_x() + rect.get_width() / 2, h),
                     xytext=(0, 2), textcoords="offset points",
-                    ha="center", va="bottom", fontsize=6.3)
+                    ha="center", va="bottom", fontsize=5.8)
 
 ax.set_xticks(xw)
-ax.set_xticklabels([c[0] for c in configs], fontsize=7.2)
+ax.set_xticklabels([c[0] for c in configs], fontsize=7.5)
 ax.set_ylabel("BERT group importance share")
 ax.set_ylim(0, 78)
 ax.yaxis.set_major_formatter(mticker.PercentFormatter(100))
-ax.legend(loc="upper left", framealpha=0.9, fontsize=6.8)
-ax.set_title("BERT's importance share: SHAP vs.\npermutation importance agree", fontsize=8.3)
+ax.legend(loc="upper left", framealpha=0.9, fontsize=7)
 fig.tight_layout()
 fig.savefig(FIG_DIR / "fig_method_agreement.pdf")
 plt.close(fig)
