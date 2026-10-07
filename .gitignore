@@ -12,3 +12,11 @@ __pycache__/
 *.fdb_latexmk
 *.synctex.gz
 paper/preview_*.png
+
+# Superseded manuscript drafts (kept locally, not published; the
+# author's accepted version is paper/Srivastava_ICAIA2026_accepted.pdf)
+paper/main.tex
+paper/main.pdf
+paper/main_blind.tex
+paper/main_blind.pdf
+paper/references.bib

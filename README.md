@@ -1,6 +1,6 @@
 # When Does BERT Help? A Cross-Domain Study of the Marginal Value of Text Embeddings Beyond Structured Features
 
-Code and data pipeline for the paper submitted to ICAIA 2026. Tests whether
+Code and data pipeline for the paper accepted at ICAIA 2026 (IEEE). Tests whether
 frozen DistilBERT embeddings add predictive signal beyond structural/meta
 features, across two prediction tasks (popularity, topic classification) and
 two domains (news articles, Reddit posts), using SHAP feature-group
@@ -8,7 +8,8 @@ importance, permutation-importance as an independent cross-check, and a
 paired-bootstrap significance test on the tabular-only vs. tabular+BERT
 accuracy delta.
 
-The full paper (with figures, tables, and results) is in `paper/main.pdf`.
+The author's accepted version of the paper is in
+`paper/Srivastava_ICAIA2026_accepted.pdf`.
 
 ## Result summary
 
@@ -48,12 +49,11 @@ outputs/
                              and tabular+BERT
   bert_embeddings.npy        Precomputed embeddings
 paper/
-  main.tex, main.pdf         Camera-ready manuscript (identified)
-  main_blind.tex, main_blind.pdf   Double-blind copy for review
+  Srivastava_ICAIA2026_accepted.pdf   Author's accepted version (IEEE
+                             copyright notice on page 1)
   generate_figures.py        Regenerates all paper figures from
                              outputs/feature_importance/
   figures/                    Generated figures (PDF)
-  references.bib              Bibliography
 ```
 
 ## Reproducing the results
@@ -79,7 +79,7 @@ python paper/generate_figures.py
 ```
 
 All splits use a fixed seed (42), stratified 80/20, shared across every
-script. See `paper/main.pdf` Section IV ("Method") for the full protocol.
+script. See Section IV ("Method") of the paper for the full protocol.
 
 ## Data
 
@@ -96,5 +96,9 @@ script. See `paper/main.pdf` Section IV ("Method") for the full protocol.
 
 ## Citation
 
-Paper under review at ICAIA 2026. Citation details will be added on
-acceptance.
+Accepted at the 2026 4th International Conference on Artificial
+Intelligence and Applications (ICAIA), IEEE. The full citation and DOI
+will be added here once the paper is published in IEEE Xplore.
+
+© 2026 IEEE. Personal use of the accepted version is permitted. Permission
+from IEEE must be obtained for all other uses.
